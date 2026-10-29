@@ -77,11 +77,20 @@ export async function reviewReminder(
     }
   );
 
-  if (!response.ok) {
-    throw new Error(`Failed to ${action} reminder (${response.status})`);
+ if (!response.ok) {
+  let errorMessage = `Failed to ${action} reminder (${response.status})`;
+
+  try {
+    const errorData = await response.json();
+    errorMessage = errorData.error ?? errorData.message ?? errorMessage;
+  } catch {
+    // Keep the fallback message if the response isn't JSON.
   }
 
-  return response.json();
+  throw new Error(errorMessage);
+}
+
+return response.json();
 }
 
 function getCookie(name: string): string | null {
