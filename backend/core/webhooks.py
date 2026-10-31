@@ -1,18 +1,15 @@
 
 import json
 import logging
+from datetime import date
+from decimal import Decimal, InvalidOperation
 
 import requests
 from decouple import config
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-
-from core.models import Invoice, WebhookEvent
-from datetime import date
-from decimal import Decimal, InvalidOperation
-
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 from core.models import Client, Invoice, WebhookEvent
 
@@ -74,8 +71,8 @@ def sync_paypal_invoice(paypal_invoice_id):
     """
     Fetch a PayPal invoice and create or update its local record.
 
-    The invoice is saved only when its recipient matches an existing
-    local client. Missing due dates remain None.
+    The invoice is saved only when its recipient matches exactly
+    one existing local client. Missing due dates remain None.
     """
     data = fetch_paypal_invoice(paypal_invoice_id)
 
@@ -99,14 +96,23 @@ def sync_paypal_invoice(paypal_invoice_id):
             f"PayPal invoice {paypal_invoice_id} has no recipient email."
         )
 
+    # Identify exactly one local client.
     try:
         client = Client.objects.get(email__iexact=recipient_email)
+
     except Client.DoesNotExist as exc:
         raise ValueError(
             f"No local client matches recipient {recipient_email}. "
             "Create or reconcile the client before syncing this invoice."
         ) from exc
 
+    except Client.MultipleObjectsReturned as exc:
+        raise ValueError(
+            f"Multiple local clients match recipient {recipient_email}. "
+            "Resolve duplicate client records before syncing this invoice."
+        ) from exc
+
+    # Validate invoice amount and currency.
     try:
         amount = Decimal(str(amount_data["value"]))
         currency = amount_data["currency_code"]
@@ -179,6 +185,7 @@ def sync_paypal_invoice(paypal_invoice_id):
 
     return invoice
 
+
 # --------------------------------------------------
 # 2. VERIFY PAYPAL WEBHOOK SIGNATURE
 # --------------------------------------------------
@@ -222,7 +229,6 @@ def verify_paypal_webhook(request, event):
 # --------------------------------------------------
 # 3. PROCESS ONE PAYPAL INVOICE EVENT
 # --------------------------------------------------
-
 
 def process_invoice_event(event_type, event):
     resource = event.get("resource", {})
@@ -283,7 +289,6 @@ def process_invoice_event(event_type, event):
     invoice.save(update_fields=["status"])
 
     return True
-
 
 
 # --------------------------------------------------

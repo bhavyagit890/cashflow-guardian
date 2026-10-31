@@ -935,6 +935,26 @@ class PayPalInvoiceSyncTests(TestCase):
         )
 
     @patch("core.webhooks.fetch_paypal_invoice")
+    def test_duplicate_recipient_email_is_rejected(self, mock_fetch):
+        Client.objects.create(
+            name="Another Sandbox Client",
+            email="demo@example.com",
+        )
+        mock_fetch.return_value = self.paypal_data
+
+        with self.assertRaisesMessage(
+            ValueError,
+            "Multiple local clients match recipient",
+        ):
+            sync_paypal_invoice("INV2-TEST-SYNC-001")
+
+        self.assertFalse(
+            Invoice.objects.filter(
+                paypal_invoice_id="INV2-TEST-SYNC-001"
+            ).exists()
+        )
+
+    @patch("core.webhooks.fetch_paypal_invoice")
     def test_unsupported_status_is_rejected(self, mock_fetch):
         data = {
             **self.paypal_data,
