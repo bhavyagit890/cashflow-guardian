@@ -283,6 +283,34 @@ class PayPalWebhookEndpointTests(TestCase):
             ).exists()
         )
         mock_verify.assert_called_once()
+    @patch("core.webhooks.verify_paypal_webhook")
+    def test_missing_paypal_headers_are_rejected(self, mock_verify):
+        event = {
+            "id": "TEST-MISSING-HEADERS-001",
+            "event_type": "INVOICING.INVOICE.CREATED",
+            "resource": {"id": "UNKNOWN-INVOICE-003"},
+        }
+
+        response = self.client.post(
+            "/api/webhooks/paypal/",
+            data=json.dumps(event),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["error"],
+            "Missing required PayPal headers",
+        )
+
+        mock_verify.assert_not_called()
+
+        self.assertFalse(
+            WebhookEvent.objects.filter(
+                paypal_event_id=event["id"]
+            ).exists()
+        )
+
 class WebhookRetryTests(TestCase):
     def setUp(self):
         self.client = TestClient()
