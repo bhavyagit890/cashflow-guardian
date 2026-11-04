@@ -141,10 +141,9 @@ def sync_paypal_invoice(paypal_invoice_id):
     # Only assign a due date if PayPal actually provides one.
     # NO_DUE_DATE must not be converted into an invented deadline.
     if payment_term.get("term_type") != "NO_DUE_DATE":
-        due_date_value = detail.get("due_date")
-        if due_date_value:
-            due_date = date.fromisoformat(due_date_value)
-
+       due_date_value = payment_term.get("due_date")
+       if due_date_value:
+          due_date = date.fromisoformat(due_date_value)
     status_mapping = {
         "DRAFT": Invoice.Status.DRAFT,
         "SENT": Invoice.Status.SENT,

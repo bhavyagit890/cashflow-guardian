@@ -677,3 +677,624 @@ button {
     gap: 12px;
   }
 }
+
+/* ========================================
+   CASHFLOW GUARDIAN - UI POLISH
+======================================== */
+
+/* Main application */
+.app-shell {
+  background: #f5f7f5;
+  min-height: 100vh;
+}
+
+.main-content {
+  padding: 38px clamp(24px, 4vw, 64px);
+}
+
+/* Sidebar refinement */
+.sidebar {
+  width: 245px;
+  background: #102b23;
+  border-right: 1px solid #25483a;
+}
+
+.brand {
+  letter-spacing: -0.3px;
+}
+
+.nav-item {
+  min-height: 46px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.nav-item:hover {
+  transform: translateX(2px);
+}
+
+.nav-item.active {
+  background: #25483a;
+  color: #c5f79c;
+  box-shadow: inset 3px 0 #b8ef86;
+}
+
+/* Page header */
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  font-size: clamp(28px, 3vw, 36px);
+  letter-spacing: -1.4px;
+  font-weight: 700;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: #7b8981;
+}
+
+/* Summary cards */
+.stats-grid {
+  gap: 16px;
+}
+
+.stat-card {
+  padding: 22px;
+  border-radius: 15px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgb(29 58 41 / 7%);
+}
+
+.stat-amount {
+  font-size: clamp(22px, 2vw, 29px);
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+/* Panels */
+.panel {
+  padding: 25px;
+  border: 1px solid #e6ece6;
+  border-radius: 15px;
+  box-shadow: 0 5px 18px rgb(29 58 41 / 4%);
+}
+
+.panel-heading {
+  padding-bottom: 16px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #edf1ed;
+}
+
+.panel-heading h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Invoice and expense rows */
+.invoice-row {
+  padding: 13px 0;
+  border-bottom: 1px solid #f0f2f0;
+}
+
+.invoice-row:last-child {
+  border-bottom: 0;
+}
+
+.row-details strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.row-details p {
+  line-height: 1.7;
+}
+
+.row-icon {
+  border-radius: 12px;
+}
+
+/* Reminder cards */
+.reminder-card {
+  padding: 18px 0;
+  border-bottom: 1px solid #edf0ed;
+}
+
+.reminder-card:last-child {
+  border-bottom: 0;
+}
+
+.reminder-body {
+  color: #56675e;
+  font-size: 12px;
+  line-height: 1.85;
+}
+
+.reminder-actions button {
+  min-height: 40px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.reminder-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+/* Expense rows */
+.expense-row,
+.list-row {
+  min-height: 68px;
+  padding: 15px 0;
+  border-top: 1px solid #edf0ed;
+}
+
+/* Badges */
+.count-badge,
+.pending-badge,
+.unpaid-badge,
+.paid-badge {
+  padding: 7px 11px;
+  border-radius: 20px;
+  font-size: 10px;
+  letter-spacing: 0.1px;
+}
+
+/* Notices */
+.notice,
+.error-notice {
+  border-radius: 11px;
+  padding: 15px 18px;
+}
+
+/* Loading and empty states */
+.empty-state {
+  padding: 34px 12px;
+  color: #829087;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 45px 0;
+}
+
+/* Footer */
+.app-footer {
+  padding-top: 35px;
+  color: #96a39a;
+}
+
+/* Future invoice table */
+.data-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  padding: 14px 16px;
+  background: #f7f9f7;
+  color: #74837b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 16px;
+  border-bottom: 1px solid #edf0ed;
+  color: #344b40;
+  font-size: 12px;
+}
+
+.data-table tbody tr:hover {
+  background: #f8faf8;
+}
+
+/* Responsive refinements */
+@media (max-width: 1150px) {
+  .main-content {
+    padding: 30px 25px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .main-content {
+    padding: 24px 16px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .page-header h1 {
+    font-size: 27px;
+  }
+
+  .connection-badge {
+    white-space: normal;
+  }
+}
+
+/* Invoice management table */
+.invoices-panel {
+  overflow: hidden;
+}
+
+.data-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  padding: 16px 14px;
+  background: #f7f9f7;
+  color: #74837b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 17px 14px;
+  border-bottom: 1px solid #edf0ed;
+  color: #52645a;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.data-table tbody tr:hover {
+  background: #f8faf8;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-invoice-id {
+  color: #173b30;
+  font-weight: 700;
+}
+
+.amount-column {
+  text-align: right !important;
+}
+
+.table-status,
+.table-risk {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-paid {
+  background: #e6f2df;
+  color: #3b7142;
+}
+
+.status-sent,
+.status-partially_paid {
+  background: #eaf1ff;
+  color: #4266a0;
+}
+
+.status-draft {
+  background: #f0f1f2;
+  color: #66716b;
+}
+
+.status-cancelled {
+  background: #fff0ed;
+  color: #a64e40;
+}
+
+.risk-high {
+  background: #fff0ed;
+  color: #b64d3e;
+}
+
+.risk-medium {
+  background: #fff5df;
+  color: #a17a22;
+}
+
+.risk-low {
+  background: #e6f2df;
+  color: #3b7142;
+}
+
+.risk-unknown {
+  background: #f0f1f2;
+  color: #66716b;
+}
+
+/* Reminder review improvements */
+
+.reminder-card-pending {
+  padding: 22px 0;
+  border-bottom: 1px solid #e8ede8;
+}
+
+.reminder-card-archived {
+  padding: 14px 0;
+  border-bottom: 1px solid #edf0ed;
+}
+
+.reminder-status {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 7px 11px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.reminder-warning {
+  margin-top: 14px;
+  margin-bottom: 10px;
+}
+
+.reminder-body-compact {
+  color: #7c8981;
+}
+
+.reminder-card-archived .reminder-body {
+  margin: 8px 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.reminder-card-archived .safety-caption {
+  text-align: left;
+  margin-top: 7px;
+}
+
+@media (max-width: 600px) {
+  .reminder-title-row {
+    flex-wrap: wrap;
+  }
+
+  .reminder-status {
+    margin-left: 50px;
+  }
+}
+
+/* Expenses page */
+
+.expenses-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.expenses-overview {
+  background: #ffffff;
+  padding: 24px;
+  border: 1px solid #e6ece6;
+  border-radius: 15px;
+  box-shadow: 0 5px 18px rgb(29 58 41 / 4%);
+}
+
+.expense-count {
+  background: #eaf3e5;
+  color: #477044;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.expense-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.expense-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 19px;
+  background: #f7f9f7;
+  border: 1px solid #edf0ed;
+  border-radius: 12px;
+}
+
+.expense-summary-card span {
+  color: #74837b;
+  font-size: 12px;
+}
+
+.expense-summary-card strong {
+  color: #173b30;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.expense-summary-card small {
+  color: #8a968e;
+  font-size: 10px;
+}
+
+.expense-list-panel {
+  overflow: hidden;
+}
+
+.expense-list {
+  width: 100%;
+}
+
+.expense-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 78px;
+  padding: 16px 5px;
+  border-bottom: 1px solid #edf0ed;
+}
+
+.expense-row:last-child {
+  border-bottom: 0;
+}
+
+.expense-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #edf3ff;
+  color: #647db6;
+  font-weight: 700;
+}
+
+.expense-information {
+  flex: 1;
+  min-width: 0;
+}
+
+.expense-information strong {
+  color: #173b30;
+  font-size: 13px;
+}
+
+.expense-information p {
+  margin-top: 6px;
+  color: #829087;
+  font-size: 11px;
+}
+
+.expense-amount {
+  min-width: 90px;
+  text-align: right;
+  color: #173b30;
+  font-size: 13px;
+}
+
+@media (max-width: 650px) {
+  .expense-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .expense-information {
+    flex-basis: calc(100% - 55px);
+  }
+
+  .expense-amount {
+    margin-left: auto;
+  }
+}
+
+/* ========================================
+   FINAL RESPONSIVE LAYOUT FIX
+======================================== */
+
+.app-shell,
+.main-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.main-content {
+  flex: 1;
+  overflow-x: hidden;
+}
+
+.stats-grid,
+.dashboard-grid {
+  min-width: 0;
+  width: 100%;
+}
+
+.panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 650px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .main-content {
+    padding: 22px 14px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .reminder-title-row {
+    align-items: flex-start;
+  }
+
+  .data-table-wrap {
+    overflow-x: auto;
+  }
+}

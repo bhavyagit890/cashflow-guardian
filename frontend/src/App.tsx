@@ -159,8 +159,8 @@ function App() {
         0
       );
 
-  // Backend projected_gap is inflow minus obligations:
-  // positive means surplus; negative means shortfall.
+ // Backend projected_gap = obligations - expected inflow.
+// Negative means surplus; positive means shortfall.
   const netForecast = latestSnapshot
   ? Number(latestSnapshot.projected_gap)
   : upcomingExpenses - expectedInflow;
@@ -304,7 +304,7 @@ const forecastAmount = money(Math.abs(netForecast));
               <StatCard
                 title={forecastLabel}
                 amount={forecastAmount}
-                detail="Expected inflows minus upcoming obligations"
+                detail="Net cash position after upcoming obligations"
                 icon="$"
               />
 
@@ -462,12 +462,13 @@ const forecastAmount = money(Math.abs(netForecast));
           </>
         )}
 
+        
         {!loading && page === "Invoices" && (
-          <section className="panel">
+          <section className="panel invoices-panel">
             <div className="panel-heading">
               <div>
-                <h2>Invoices</h2>
-                <p>Invoice status and payment information</p>
+                <h2>All invoices</h2>
+                <p>Track invoice payments, due dates and risk levels</p>
               </div>
               <strong>{invoices.length} total</strong>
             </div>
@@ -475,29 +476,63 @@ const forecastAmount = money(Math.abs(netForecast));
             {invoices.length === 0 ? (
               <p className="empty-state">No invoices found.</p>
             ) : (
-              invoices.map((invoice) => (
-                <div className="list-row" key={invoice.id}>
-                  <div className="row-details">
-                    <strong>
-                      {invoice.paypal_invoice_id}
-                    </strong>
-                    <p>
-                      Due {invoice.due_date ?? "No due date"} ·{" "}
-                      {invoice.status}
-                    </p>
-                    <p>
-                      Risk: {invoice.risk_level || "Not assessed"}
-                    </p>
-                  </div>
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Invoice</th>
+                      <th>Due date</th>
+                      <th>Status</th>
+                      <th>Risk level</th>
+                      <th className="amount-column">Amount</th>
+                    </tr>
+                  </thead>
 
-                  <strong>
-                    {money(invoice.amount, invoice.currency)}
-                  </strong>
-                </div>
-              ))
+                  <tbody>
+                    {invoices.map((invoice) => (
+                      <tr key={invoice.id}>
+                        <td>
+                          <strong className="table-invoice-id">
+                            {invoice.paypal_invoice_id}
+                          </strong>
+                        </td>
+
+                        <td>
+                          {invoice.due_date ?? "No due date"}
+                        </td>
+
+                        <td>
+                          <span
+                            className={`table-status status-${invoice.status.toLowerCase()}`}
+                          >
+                            {readableStatus(invoice.status)}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`table-risk risk-${(invoice.risk_level || "unknown").toLowerCase()}`}
+                          >
+                            {readableStatus(
+                              invoice.risk_level || "Not assessed"
+                            )}
+                          </span>
+                        </td>
+
+                        <td className="amount-column">
+                          <strong>
+                            {money(invoice.amount, invoice.currency)}
+                          </strong>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
         )}
+
 
         {!loading && page === "Reminders" && (
           <section className="panel">
@@ -535,57 +570,103 @@ const forecastAmount = money(Math.abs(netForecast));
         )}
 
         {!loading && page === "Expenses" && (
-          <section className="panel">
-            <div className="panel-heading">
-              <div>
-                <h2>Expenses</h2>
-                <p>Planned payments and their status</p>
+          <section className="expenses-page">
+            <div className="expenses-overview">
+              <div className="panel-heading">
+                <div>
+                  <h2>Expense overview</h2>
+                  <p>Monitor your upcoming business obligations</p>
+                </div>
+
+                <span className="expense-count">
+                  {expenses.length} records
+                </span>
               </div>
 
-              <strong>
-                {money(
-                  expenses.reduce(
-                    (total, expense) =>
-                      total +
-                      (expense.is_paid
-                        ? 0
-                        : Number(expense.amount)),
-                    0
-                  )
-                )}
-              </strong>
+              <div className="expense-summary-grid">
+                <div className="expense-summary-card">
+                  <span>Total unpaid</span>
+                  <strong>
+                    {money(
+                      expenses.reduce(
+                        (total, expense) =>
+                          total +
+                          (expense.is_paid
+                            ? 0
+                            : Number(expense.amount)),
+                        0
+                      )
+                    )}
+                  </strong>
+                  <small>Outstanding obligations</small>
+                </div>
+
+                <div className="expense-summary-card">
+                  <span>Paid expenses</span>
+                  <strong>
+                    {expenses.filter((expense) => expense.is_paid).length}
+                  </strong>
+                  <small>Completed payments</small>
+                </div>
+
+                <div className="expense-summary-card">
+                  <span>Unpaid expenses</span>
+                  <strong>
+                    {expenses.filter((expense) => !expense.is_paid).length}
+                  </strong>
+                  <small>Awaiting payment</small>
+                </div>
+              </div>
             </div>
 
-            {expenses.length === 0 ? (
-              <p className="empty-state">No expenses found.</p>
-            ) : (
-              expenses.map((expense) => (
-                <div className="list-row" key={expense.id}>
-                  <div className="row-details">
-                    <strong>{expense.description}</strong>
-                    <p>
-                      {expense.category} · Due {expense.due_date}
-                    </p>
-                  </div>
-
-                  <span
-                    className={
-                      expense.is_paid
-                        ? "paid-badge"
-                        : "unpaid-badge"
-                    }
-                  >
-                    {expense.is_paid ? "Paid" : "Unpaid"}
-                  </span>
-
-                  <strong>
-                    {money(expense.amount, expense.currency)}
-                  </strong>
+            <section className="panel expense-list-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>All expenses</h2>
+                  <p>Review planned payments and their status</p>
                 </div>
-              ))
-            )}
+              </div>
+
+              {expenses.length === 0 ? (
+                <p className="empty-state">
+                  No expenses found.
+                </p>
+              ) : (
+                <div className="expense-list">
+                  {expenses.map((expense) => (
+                    <div className="expense-row" key={expense.id}>
+                      <div className="expense-icon">
+                        {expense.is_paid ? "✓" : "↗"}
+                      </div>
+
+                      <div className="expense-information">
+                        <strong>{expense.description}</strong>
+                        <p>
+                          {expense.category} · Due {expense.due_date}
+                        </p>
+                      </div>
+
+                      <span
+                        className={
+                          expense.is_paid
+                            ? "paid-badge"
+                            : "unpaid-badge"
+                        }
+                      >
+                        {expense.is_paid ? "Paid" : "Unpaid"}
+                      </span>
+
+                      <strong className="expense-amount">
+                        {money(expense.amount, expense.currency)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </section>
         )}
+
 
         <footer className="app-footer">
           Cash-Flow Guardian · Demo workspace · Forecasts are
@@ -620,6 +701,7 @@ function StatCard({
   );
 }
 
+
 function ReminderCard({
   reminder,
   reviewing,
@@ -634,7 +716,6 @@ function ReminderCard({
 }) {
   const pending = reminder.status === "PENDING_APPROVAL";
 
-  // Detect placeholders without modifying the saved audit record.
   const hasPlaceholder =
     /\[[^\]]+\]/.test(reminder.subject) ||
     /\[[^\]]+\]/.test(reminder.body) ||
@@ -643,27 +724,42 @@ function ReminderCard({
     /\bYour Company\b/i.test(reminder.body) ||
     /\bAccounts Receivable\b/i.test(reminder.body);
 
+  const statusLabel =
+    reminder.status === "APPROVED"
+      ? "APPROVED · NOT SENT"
+      : readableStatus(reminder.status);
+
+  const bodyPreview =
+    reminder.body.length > 180
+      ? reminder.body.slice(0, 180).trimEnd() + "..."
+      : reminder.body;
+
   return (
-    <article className="reminder-card">
+    <article
+      className={`reminder-card ${
+        pending ? "reminder-card-pending" : "reminder-card-archived"
+      }`}
+    >
       <div className="reminder-title-row">
         <span className="row-icon">✉</span>
 
         <div className="row-details">
           <strong>{reminder.subject}</strong>
           <p>
-            Reminder #{reminder.id} · {reminder.tone} ·{" "}
-            {reminder.status === "APPROVED"
-              ? "APPROVED · NOT SENT"
-              : readableStatus(reminder.status)}
+            Reminder #{reminder.id} · {reminder.tone}
           </p>
         </div>
+
+        <span
+          className={`reminder-status status-${reminder.status.toLowerCase()}`}
+        >
+          {statusLabel}
+        </span>
       </div>
 
       {hasPlaceholder && (
-        <div className="error-notice" role="alert">
-          <strong>
-            Review required: placeholder text detected.
-          </strong>
+        <div className="error-notice reminder-warning" role="alert">
+          <strong>Review required: placeholder text detected.</strong>
           <p>
             This reminder contains a name, company, or signature
             placeholder. Replace it with verified information before
@@ -672,16 +768,16 @@ function ReminderCard({
         </div>
       )}
 
-      <p className="reminder-body">{reminder.body}</p>
+      <p className="reminder-body">
+        {pending ? reminder.body : bodyPreview}
+      </p>
 
       {pending && (
         <div className="reminder-actions">
           <button
             type="button"
             disabled={reviewing}
-            onClick={() =>
-              void onReview(reminder.id, "approve")
-            }
+            onClick={() => void onReview(reminder.id, "approve")}
           >
             {reviewing ? "Processing..." : "Approve"}
           </button>
@@ -689,9 +785,7 @@ function ReminderCard({
           <button
             type="button"
             disabled={reviewing}
-            onClick={() =>
-              void onReview(reminder.id, "reject")
-            }
+            onClick={() => void onReview(reminder.id, "reject")}
           >
             {reviewing ? "Processing..." : "Reject"}
           </button>
@@ -712,5 +806,6 @@ function ReminderCard({
     </article>
   );
 }
+
 
 export default App;

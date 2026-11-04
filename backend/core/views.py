@@ -79,8 +79,22 @@ def approve_reminder(request, reminder_id):
             {"error": "Only pending reminders can be approved."},
             status=status.HTTP_409_CONFLICT,
         )
+
+    # Check invoice status BEFORE approving.
+    if reminder.invoice.status in [
+        Invoice.Status.PAID,
+        Invoice.Status.CANCELLED,
+    ]:
+        return Response(
+            {
+                "error": "Cannot approve a reminder for a paid or cancelled invoice."
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
     reminder.status = ReminderLog.Status.APPROVED
     reminder.save(update_fields=["status"])
+
     return Response({
         "message": "Reminder approved. No message was sent.",
         "reminder_id": reminder.id,

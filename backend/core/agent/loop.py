@@ -41,10 +41,10 @@ def find_overdue_invoices():
     )
 
 
-# --------------------------------------------------
 # 2. ASSESS INVOICE RISK
 # --------------------------------------------------
 
+# --------------------------------------------------
 
 def assess_invoice_risk(invoice):
     """
@@ -92,6 +92,12 @@ def record_risk_action(invoice, risk_level):
     Update an existing unreviewed risk action where possible,
     rather than creating duplicate actions.
     """
+
+        # Keep the invoice's stored risk level in sync.
+    if invoice.risk_level != risk_level:
+        invoice.risk_level = risk_level
+        invoice.save(update_fields=["risk_level"])
+        
     existing_action = (
         AgentAction.objects.filter(
             invoice=invoice,
@@ -422,10 +428,10 @@ def generate_cash_flow_snapshot(days_ahead=30):
         or Decimal("0.00")
     )
 
+
     upcoming_obligations = (
         Expense.objects.filter(
             is_paid=False,
-            due_date__gte=today,
             due_date__lte=forecast_end,
         ).aggregate(total=Sum("amount"))["total"]
         or Decimal("0.00")
@@ -441,3 +447,4 @@ def generate_cash_flow_snapshot(days_ahead=30):
         upcoming_obligations=upcoming_obligations,
         projected_gap=projected_gap,
     )
+

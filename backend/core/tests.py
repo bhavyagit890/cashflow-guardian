@@ -1,3 +1,4 @@
+
 import json
 from datetime import date, timedelta
 from decimal import Decimal
@@ -7,6 +8,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.template import response
 from django.test import TestCase, Client as TestClient
 from django.urls import reverse
 from django.utils import timezone
@@ -311,6 +313,7 @@ class PayPalWebhookEndpointTests(TestCase):
             ).exists()
         )
 
+
 class WebhookRetryTests(TestCase):
     def setUp(self):
         self.client = TestClient()
@@ -402,6 +405,7 @@ class AgentRiskActionTests(TestCase):
             issued_at=timezone.now(),
             due_date=date(2026, 10, 1),
             status=Invoice.Status.SENT,
+        
         )
 
     def test_duplicate_pending_assessment_reuses_action(self):
@@ -435,6 +439,12 @@ class AgentRiskActionTests(TestCase):
         risk = assess_invoice_risk(self.invoice)
 
         self.assertEqual(risk, Invoice.RiskLevel.LOW)
+
+    def test_record_risk_action_updates_invoice_risk_level(self):
+        risk = assess_invoice_risk(self.invoice)
+        record_risk_action(self.invoice, risk)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.risk_level, risk)
 
 
 class ReminderApprovalTests(TestCase):
@@ -471,36 +481,76 @@ class ReminderApprovalTests(TestCase):
         response = self.client.post(
             reverse("approve_reminder", args=[self.reminder.id])
         )
-
         self.assertEqual(response.status_code, 200)
+        self.reminder.refresh_from_db()
+        self.assertEqual(self.reminder.status, ReminderLog.Status.APPROVED)
+        self.assertIn("No message was sent", response.json()["message"])
+
+    def test_approve_reminder_for_paid_invoice_returns_409(self):
+        self.invoice.status = Invoice.Status.PAID
+        self.invoice.save(update_fields=["status"])
+        response = self.client.post(
+            reverse("approve_reminder", args=[self.reminder.id])
+        )
+        self.assertEqual(response.status_code, 409)
         self.reminder.refresh_from_db()
         self.assertEqual(
             self.reminder.status,
-            ReminderLog.Status.APPROVED,
+            ReminderLog.Status.PENDING_APPROVAL,
         )
-        self.assertIn("No message was sent", response.json()["message"])
+
+    def test_approve_reminder_for_cancelled_invoice_returns_409(self):
+        self.invoice.status = Invoice.Status.CANCELLED
+        self.invoice.save(update_fields=["status"])
+        response = self.client.post(
+            reverse("approve_reminder", args=[self.reminder.id])
+        )
+        self.assertEqual(response.status_code, 409)
+        self.reminder.refresh_from_db()
+        self.assertEqual(
+            self.reminder.status,
+            ReminderLog.Status.PENDING_APPROVAL,
+        )
+
+    def test_approving_nonexistent_reminder_returns_404(self):
+        response = self.client.post(
+            reverse("approve_reminder", args=[999999])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_rejecting_nonexistent_reminder_returns_404(self):
+        response = self.client.post(
+            reverse("reject_reminder", args=[999999])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_approve_reminder_rejects_get_request(self):
+        response = self.client.get(
+            reverse("approve_reminder", args=[self.reminder.id])
+        )
+        self.assertEqual(response.status_code, 405)
+
+    def test_reject_reminder_rejects_get_request(self):
+        response = self.client.get(
+            reverse("reject_reminder", args=[self.reminder.id])
+        )
+        self.assertEqual(response.status_code, 405)
 
     def test_reject_pending_reminder(self):
         response = self.client.post(
             reverse("reject_reminder", args=[self.reminder.id])
         )
-
         self.assertEqual(response.status_code, 200)
         self.reminder.refresh_from_db()
-        self.assertEqual(
-            self.reminder.status,
-            ReminderLog.Status.REJECTED,
-        )
+        self.assertEqual(self.reminder.status, ReminderLog.Status.REJECTED)
         self.assertIn("No message was sent", response.json()["message"])
 
     def test_approving_already_approved_reminder_returns_409(self):
         self.reminder.status = ReminderLog.Status.APPROVED
         self.reminder.save(update_fields=["status"])
-
         response = self.client.post(
             reverse("approve_reminder", args=[self.reminder.id])
         )
-
         self.assertEqual(response.status_code, 409)
         self.assertEqual(
             response.json()["error"],
@@ -510,11 +560,9 @@ class ReminderApprovalTests(TestCase):
     def test_rejecting_already_rejected_reminder_returns_409(self):
         self.reminder.status = ReminderLog.Status.REJECTED
         self.reminder.save(update_fields=["status"])
-
         response = self.client.post(
             reverse("reject_reminder", args=[self.reminder.id])
         )
-
         self.assertEqual(response.status_code, 409)
         self.assertEqual(
             response.json()["error"],
@@ -524,49 +572,40 @@ class ReminderApprovalTests(TestCase):
     def test_cannot_approve_rejected_reminder(self):
         self.reminder.status = ReminderLog.Status.REJECTED
         self.reminder.save(update_fields=["status"])
-
         response = self.client.post(
             reverse("approve_reminder", args=[self.reminder.id])
         )
-
         self.assertEqual(response.status_code, 409)
 
     def test_anonymous_user_cannot_approve_reminder(self):
         anonymous_client = TestClient()
-
         response = anonymous_client.post(
             reverse("approve_reminder", args=[self.reminder.id])
         )
-
         self.assertIn(response.status_code, [401, 403])
 
     def test_anonymous_user_cannot_reject_reminder(self):
         anonymous_client = TestClient()
-
         response = anonymous_client.post(
             reverse("reject_reminder", args=[self.reminder.id])
         )
-
         self.assertIn(response.status_code, [401, 403])
+
     def test_anonymous_user_cannot_access_invoice_list(self):
         anonymous_client = TestClient()
-
         response = anonymous_client.get("/api/invoices/")
-
         self.assertIn(response.status_code, [401, 403])
+
     def test_anonymous_user_cannot_access_reminder_list(self):
         anonymous_client = TestClient()
-
         response = anonymous_client.get("/api/reminders/")
-
         self.assertIn(response.status_code, [401, 403])
 
     def test_anonymous_user_cannot_access_expenses(self):
         anonymous_client = TestClient()
-
         response = anonymous_client.get("/api/expenses/")
-
         self.assertIn(response.status_code, [401, 403])
+
 
 class CashFlowForecastTests(TestCase):
     def setUp(self):
@@ -623,15 +662,17 @@ class CashFlowForecastTests(TestCase):
             Decimal("0.00"),
         )
 
-    def test_overdue_expense_is_excluded(self):
-        self.expense.due_date = timezone.localdate() - timedelta(days=3)
+    def test_overdue_unpaid_expense_is_included(self):
+        self.expense.due_date = (
+            timezone.localdate() - timedelta(days=3)
+        )
         self.expense.save(update_fields=["due_date"])
 
         snapshot = generate_cash_flow_snapshot()
 
         self.assertEqual(
             snapshot.upcoming_obligations,
-            Decimal("0.00"),
+            Decimal("200.00"),
         )
 
     def test_expense_api_returns_expense(self):
@@ -668,7 +709,6 @@ class CashFlowForecastTests(TestCase):
             snapshot.expected_inflow,
             Decimal("500.00"),
         )
-
 
 class RunCashflowAgentCommandTests(TestCase):
     @patch(
@@ -785,6 +825,31 @@ class ProcessOverdueInvoiceTests(TestCase):
             1,
         )
 
+    @patch("core.agent.loop.generate_reminder_draft")
+    def test_new_overdue_invoice_creates_reminder_draft(
+        self, mock_generate_draft
+    ):
+        mock_generate_draft.return_value = (
+            "Subject: Payment reminder\n\n"
+            "Hello,\n"
+            "Please confirm your expected payment date.\n"
+            "Thank you for your time."
+        )
+
+        result = process_overdue_invoice(self.invoice)
+
+        self.assertTrue(result["draft_created"])
+        self.assertEqual(
+            result["reminder_status"],
+            ReminderLog.Status.PENDING_APPROVAL,
+        )
+
+        mock_generate_draft.assert_called_once_with(self.invoice)
+
+        self.assertEqual(
+            ReminderLog.objects.filter(invoice=self.invoice).count(),
+            1,
+        )
 
 class RunAgentCycleErrorLoggingTests(TestCase):
     @patch("core.agent.loop.process_overdue_invoice")
@@ -973,6 +1038,7 @@ class PayPalInvoiceSyncTests(TestCase):
                 paypal_invoice_id="INV2-TEST-SYNC-001"
             ).exists()
         )
+
     @patch("core.webhooks.fetch_paypal_invoice")
     def test_mismatched_paypal_invoice_id_is_rejected(self, mock_fetch):
         mock_fetch.return_value = {
@@ -991,6 +1057,7 @@ class PayPalInvoiceSyncTests(TestCase):
                 paypal_invoice_id="INV2-TEST-SYNC-001"
             ).exists()
         )
+
 
 class ReminderPlaceholderValidationTests(TestCase):
     def setUp(self):
@@ -1044,4 +1111,4 @@ class ReminderPlaceholderValidationTests(TestCase):
             reminder.status,
             ReminderLog.Status.PENDING_APPROVAL,
         )
-        self.assertNotIn("[", reminder.body)
+

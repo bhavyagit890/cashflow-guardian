@@ -1,12 +1,22 @@
 # Python
 venv/
+.venv/
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-db.sqlite3
 
 # Environment secrets
 .env
+.env.*
+!.env.example
+
+# Local database and logs
+db.sqlite3
+*.log
+
+# Frontend
+node_modules/
+dist/
 
 # IDE
 .vscode/
@@ -15,30 +25,5 @@ db.sqlite3
 # OS
 Thumbs.db
 .DS_Store
-
-# Node (for frontend later)
-node_modules/
-dist/
-
-
-# Environment secrets
-.env
-.env.*
-!.env.example
-
-# Python virtual environments
-venv/
-.venv/
-
-# Python cache
-__pycache__/
-*.py[cod]
-*.pyo
-
-# Local database and logs
-db.sqlite3
-*.log
-
-# Frontend dependencies and builds
-node_modules/
-dist/
+# Django collected static files
+backend/staticfiles/
