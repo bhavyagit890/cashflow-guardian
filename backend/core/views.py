@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from core.agent.loop import process_overdue_invoice
 
 from .models import (
     AgentAction,
@@ -148,11 +149,58 @@ def expense_list(request):
     serializer = ExpenseSerializer(expenses, many=True)
     return Response(serializer.data)
 
-
 @api_view(["GET"])
 def cash_flow_snapshot_list(request):
     snapshots = CashFlowSnapshot.objects.filter(
         business=request.user.business
     ).order_by("-date", "-id")
+
     serializer = CashFlowSnapshotSerializer(snapshots, many=True)
     return Response(serializer.data)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def trigger_demo_agent(request):
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("client").filter(
+            client__business=request.user.business
+        ),
+        paypal_invoice_id="CFG-SEED-OVERDUE-001",
+    )
+
+    existing_reminder = (
+        ReminderLog.objects.filter(invoice=invoice)
+        .order_by("-id")
+        .first()
+    )
+
+    if existing_reminder:
+        return Response({
+            "message": "A reminder already exists. No duplicate was created.",
+            "invoice_id": invoice.paypal_invoice_id,
+            "reminder_id": existing_reminder.id,
+            "reminder_status": existing_reminder.status,
+            "draft_created": False,
+        })
+
+    process_overdue_invoice(invoice)
+
+    reminder = (
+        ReminderLog.objects.filter(invoice=invoice)
+        .order_by("-id")
+        .first()
+    )
+
+    if reminder is None:
+        return Response(
+            {"error": "Agent finished, but no reminder draft was created."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    return Response({
+        "message": "Reminder draft created successfully.",
+        "invoice_id": invoice.paypal_invoice_id,
+        "reminder_id": reminder.id,
+        "reminder_status": reminder.status,
+        "draft_created": True,
+    })

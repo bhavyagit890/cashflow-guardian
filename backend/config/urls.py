@@ -16,6 +16,7 @@ from core.views import (
     client_list,
     expense_list,
     cash_flow_snapshot_list,
+    trigger_demo_agent,  # Add this
 )
 
 from core.webhooks import paypal_webhook
@@ -67,4 +68,5 @@ urlpatterns = [
 
     # Keep the frontend route last.
     path("", frontend_app, name="frontend"),
+    path("api/agent/trigger-demo/", trigger_demo_agent, name="trigger_demo_agent"),
 ]
