@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from core.agent.loop import process_overdue_invoice
+
 
 from .models import (
     AgentAction,
@@ -158,30 +158,6 @@ def cash_flow_snapshot_list(request):
     serializer = CashFlowSnapshotSerializer(snapshots, many=True)
     return Response(serializer.data)
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def trigger_demo_agent(request):
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("client").filter(
-            client__business=request.user.business
-        ),
-        paypal_invoice_id="CFG-SEED-OVERDUE-001",
-    )
-
-    existing_reminder = (
-        ReminderLog.objects.filter(invoice=invoice)
-        .order_by("-id")
-        .first()
-    )
-
-    if existing_reminder:
-        return Response({
-            "message": "A reminder already exists. No duplicate was created.",
-            "invoice_id": invoice.paypal_invoice_id,
-            "reminder_id": existing_reminder.id,
-            "reminder_status": existing_reminder.status,
-            "draft_created": False,
-        })
 
     process_overdue_invoice(invoice)
 
