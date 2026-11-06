@@ -3,6 +3,7 @@ from django.conf import settings
 from django.http import Http404, HttpResponse
 from django.contrib import admin
 from django.urls import include, path
+from rest_framework.authtoken.views import obtain_auth_token
 
 from core.views import (
     agent_action_list,
@@ -42,6 +43,7 @@ urlpatterns = [
     path("api/payment-plans/", payment_plan_list, name="payment_plan_list"),
     path("api/agent-actions/", agent_action_list, name="agent_action_list"),
     path("api/webhooks/paypal/", paypal_webhook, name="paypal_webhook"),
+    path("api/auth/login/", obtain_auth_token, name="api_login"),
 
     path(
         "api/reminders/<int:reminder_id>/approve/",

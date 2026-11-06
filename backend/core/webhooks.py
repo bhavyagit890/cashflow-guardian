@@ -12,6 +12,12 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from core.models import Client, Invoice, WebhookEvent
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
+from rest_framework.permissions import AllowAny
 
 logger = logging.getLogger(__name__)
 
@@ -366,6 +372,9 @@ def retry_pending_webhook_events(limit=100):
 # --------------------------------------------------
 
 @csrf_exempt
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
 def paypal_webhook(request):
     if request.method != "POST":
         return JsonResponse(

@@ -1,9 +1,26 @@
+
 const API_BASE_URL = "/api";
 
+export function getAuthToken(): string | null {
+  return localStorage.getItem("authToken");
+}
+
 async function fetchApi<T>(endpoint: string): Promise<T> {
+  const token = getAuthToken();
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    credentials: "include",
+    headers: {
+      ...(token && {
+        Authorization: `Token ${token}`,
+      }),
+    },
   });
+
+  if (response.status === 401) {
+    localStorage.removeItem("authToken");
+    window.location.href = "/";
+    throw new Error("Session expired. Please log in again.");
+  }
 
   if (!response.ok) {
     throw new Error(
@@ -60,49 +77,43 @@ export const getReminders = () => fetchApi<Reminder[]>("/reminders/");
 export const getCashFlowSnapshots = () =>
   fetchApi<CashFlowSnapshot[]>("/cash-flow-snapshots/");
 
-
 export async function reviewReminder(
   reminderId: number,
   action: "approve" | "reject"
 ): Promise<{ message: string; reminder_id: number; status: string }> {
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/reminders/${reminderId}/${action}/`,
     {
       method: "POST",
-      credentials: "include",
       headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCookie("csrftoken") ?? "",
+        ...(token && {
+          Authorization: `Token ${token}`,
+        }),
       },
     }
   );
 
- if (!response.ok) {
-  let errorMessage = `Failed to ${action} reminder (${response.status})`;
-
-  try {
-    const errorData = await response.json();
-    errorMessage = errorData.error ?? errorData.message ?? errorMessage;
-  } catch {
-    // Keep the fallback message if the response isn't JSON.
+  if (response.status === 401) {
+    localStorage.removeItem("authToken");
+    window.location.href = "/";
+    throw new Error("Session expired. Please log in again.");
   }
 
-  throw new Error(errorMessage);
-}
+  if (!response.ok) {
+    let errorMessage = `Failed to ${action} reminder (${response.status})`;
 
-return response.json();
-}
-
-function getCookie(name: string): string | null {
-  const cookies = document.cookie.split("; ");
-
-  for (const cookie of cookies) {
-    const [key, ...value] = cookie.split("=");
-
-    if (key === name) {
-      return decodeURIComponent(value.join("="));
+    try {
+      const errorData = await response.json();
+      errorMessage =
+        errorData.error ?? errorData.message ?? errorMessage;
+    } catch {
+      // Keep the fallback message if the response isn't JSON.
     }
+
+    throw new Error(errorMessage);
   }
 
-  return null;
+  return response.json();
 }

@@ -14,8 +14,9 @@ from .models import (
     PaymentPlan,
     ReminderLog,
     Expense,
-CashFlowSnapshot,
+    CashFlowSnapshot,
 )
+
 from .serializers import (
     AgentActionSerializer,
     ClientSerializer,
@@ -23,7 +24,7 @@ from .serializers import (
     PaymentPlanSerializer,
     ReminderLogSerializer,
     ExpenseSerializer,
-CashFlowSnapshotSerializer,
+    CashFlowSnapshotSerializer,
 )
 
 
@@ -33,35 +34,45 @@ def health_check(request):
 
 @api_view(["GET"])
 def client_list(request):
-    clients = Client.objects.all()
+    clients = Client.objects.filter(
+        business=request.user.business
+    )
     serializer = ClientSerializer(clients, many=True)
     return Response(serializer.data)
 
 
 @api_view(["GET"])
 def invoice_list(request):
-    invoices = Invoice.objects.select_related("client").all()
+    invoices = Invoice.objects.select_related("client").filter(
+        client__business=request.user.business
+    )
     serializer = InvoiceSerializer(invoices, many=True)
     return Response(serializer.data)
 
 
 @api_view(["GET"])
 def reminder_list(request):
-    reminders = ReminderLog.objects.select_related("invoice").all()
+    reminders = ReminderLog.objects.select_related("invoice").filter(
+        invoice__client__business=request.user.business
+    )
     serializer = ReminderLogSerializer(reminders, many=True)
     return Response(serializer.data)
 
 
 @api_view(["GET"])
 def payment_plan_list(request):
-    plans = PaymentPlan.objects.select_related("invoice").all()
+    plans = PaymentPlan.objects.select_related("invoice").filter(
+        invoice__client__business=request.user.business
+    )
     serializer = PaymentPlanSerializer(plans, many=True)
     return Response(serializer.data)
 
 
 @api_view(["GET"])
 def agent_action_list(request):
-    actions = AgentAction.objects.select_related("invoice").all()
+    actions = AgentAction.objects.select_related("invoice").filter(
+        invoice__client__business=request.user.business
+    )
     serializer = AgentActionSerializer(actions, many=True)
     return Response(serializer.data)
 
@@ -70,7 +81,9 @@ def agent_action_list(request):
 @permission_classes([IsAuthenticated])
 def approve_reminder(request, reminder_id):
     reminder = get_object_or_404(
-        ReminderLog,
+        ReminderLog.objects.filter(
+            invoice__client__business=request.user.business
+        ),
         pk=reminder_id,
     )
 
@@ -80,7 +93,6 @@ def approve_reminder(request, reminder_id):
             status=status.HTTP_409_CONFLICT,
         )
 
-    # Check invoice status BEFORE approving.
     if reminder.invoice.status in [
         Invoice.Status.PAID,
         Invoice.Status.CANCELLED,
@@ -106,7 +118,9 @@ def approve_reminder(request, reminder_id):
 @permission_classes([IsAuthenticated])
 def reject_reminder(request, reminder_id):
     reminder = get_object_or_404(
-        ReminderLog,
+        ReminderLog.objects.filter(
+            invoice__client__business=request.user.business
+        ),
         pk=reminder_id,
     )
 
@@ -128,13 +142,17 @@ def reject_reminder(request, reminder_id):
 
 @api_view(["GET"])
 def expense_list(request):
-    expenses = Expense.objects.all().order_by("due_date")
+    expenses = Expense.objects.filter(
+        business=request.user.business
+    ).order_by("due_date")
     serializer = ExpenseSerializer(expenses, many=True)
     return Response(serializer.data)
 
 
 @api_view(["GET"])
 def cash_flow_snapshot_list(request):
-    snapshots = CashFlowSnapshot.objects.all().order_by("-date", "-id")
+    snapshots = CashFlowSnapshot.objects.filter(
+        business=request.user.business
+    ).order_by("-date", "-id")
     serializer = CashFlowSnapshotSerializer(snapshots, many=True)
     return Response(serializer.data)

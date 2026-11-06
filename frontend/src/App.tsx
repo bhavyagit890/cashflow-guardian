@@ -12,7 +12,10 @@ import {
   type Expense,
   type Reminder,
   type CashFlowSnapshot,
+  getAuthToken,
 } from "./api";
+
+import Login from "./Login";
 
 type Page = "Dashboard" | "Invoices" | "Reminders" | "Expenses";
 
@@ -27,7 +30,23 @@ function readableStatus(status: string) {
   return status.replaceAll("_", " ");
 }
 
+
 function App() {
+  // Authentication state
+  const [token, setToken] = useState<string | null>(() => getAuthToken());
+
+  function handleLogin(newToken: string) {
+    localStorage.setItem("authToken", newToken);
+    setToken(newToken);
+    setLoading(true);
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("authToken");
+    setToken(null);
+  }
+
+  // Dashboard state
   const [page, setPage] = useState<Page>("Dashboard");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -39,6 +58,7 @@ function App() {
   const [reviewingReminder, setReviewingReminder] =
     useState<number | null>(null);
 
+  // Load dashboard data
   const loadData = useCallback(async () => {
     try {
       const results = await Promise.allSettled([
@@ -84,9 +104,13 @@ function App() {
     }
   }, []);
 
+  // Load data only after authentication
   useEffect(() => {
-    // Defer the initial data load until after the effect runs.
-    // This avoids synchronously triggering state updates inside the effect.
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       void loadData();
     }, 0);
@@ -94,7 +118,10 @@ function App() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [loadData]);
+  }, [loadData, token]);
+
+  // Keep your existing handleReminderReview function below.
+
 
   async function handleReminderReview(
     reminderId: number,
@@ -174,7 +201,9 @@ const forecastLabel =
 
 const forecastAmount = money(Math.abs(netForecast));
 
-
+if (!token) {
+  return <Login onLogin={handleLogin} />;
+}
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -210,6 +239,15 @@ const forecastAmount = money(Math.abs(netForecast));
         <div className="sidebar-footer">
           <strong>Demo Workspace</strong>
           <p>Freelancer account</p>
+
+
+  <button
+    type="button"
+    className="logout-button"
+    onClick={handleLogout}
+  >
+    Log out
+  </button>
         </div>
       </aside>
 
@@ -733,8 +771,7 @@ function ReminderCard({
     reminder.body.length > 180
       ? reminder.body.slice(0, 180).trimEnd() + "..."
       : reminder.body;
-
-  return (
+ return (
     <article
       className={`reminder-card ${
         pending ? "reminder-card-pending" : "reminder-card-archived"

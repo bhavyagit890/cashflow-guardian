@@ -1,7 +1,20 @@
 
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 
+
+class Business(models.Model):
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="business",
+    )
+    name = models.CharField(max_length=150)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
 
 class Client(models.Model):
     name = models.CharField(max_length=100)
@@ -9,6 +22,11 @@ class Client(models.Model):
     reliability_score = models.PositiveSmallIntegerField(default=50)
     avg_days_late = models.PositiveIntegerField(default=0)
     notes = models.TextField(blank=True)
+    business = models.ForeignKey(
+    Business,
+    on_delete=models.CASCADE,
+    related_name="clients",
+)
 
     def __str__(self):
         return self.name
@@ -183,6 +201,11 @@ class CashFlowSnapshot(models.Model):
         decimal_places=2,
         default=0,
     )
+    business = models.ForeignKey(
+    Business,
+    on_delete=models.CASCADE,
+    related_name="cash_flow_snapshots",
+)
 
     def __str__(self):
         return f"Cash flow snapshot for {self.date}"
@@ -210,6 +233,11 @@ class Expense(models.Model):
     )
     is_paid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    business = models.ForeignKey(
+    Business,
+    on_delete=models.CASCADE,
+    related_name="expenses",
+)
 
     def __str__(self):
         return f"{self.description} - {self.amount} {self.currency}"
