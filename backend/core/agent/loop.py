@@ -10,6 +10,7 @@ from google import genai
 
 from core.models import (
     AgentAction,
+    Business,
     CashFlowSnapshot,
     Expense,
     Invoice,
@@ -391,9 +392,11 @@ def run_agent_cycle():
 # 8. GENERATE A CASH-FLOW SNAPSHOT
 # --------------------------------------------------
 
+
 def generate_cash_flow_snapshot(days_ahead=30):
+   def generate_cash_flow_snapshot(days_ahead=30):
     """
-    Create a cash-flow snapshot for the next N days.
+    Create a cash-flow snapshot for the demo business over the next N days.
 
     Inflow:
         Full amounts of SENT and PARTIALLY_PAID invoices with
@@ -410,14 +413,23 @@ def generate_cash_flow_snapshot(days_ahead=30):
           currency. This version does not perform currency conversion.
         - Forecasts are estimates, not guarantees.
     """
+
     if days_ahead < 0:
         raise ValueError("days_ahead cannot be negative.")
+
+    # Identify the demo business.
+    demo_username = config("DEMO_USERNAME")
+    business = Business.objects.get(
+        owner__username=demo_username
+    )
 
     today = timezone.localdate()
     forecast_end = today + timedelta(days=days_ahead)
 
+    # Calculate expected inflow for this business only.
     expected_inflow = (
         Invoice.objects.filter(
+            client__business=business,
             status__in=[
                 Invoice.Status.SENT,
                 Invoice.Status.PARTIALLY_PAID,
@@ -428,9 +440,10 @@ def generate_cash_flow_snapshot(days_ahead=30):
         or Decimal("0.00")
     )
 
-
+    # Calculate unpaid expenses for this business only.
     upcoming_obligations = (
         Expense.objects.filter(
+            business=business,
             is_paid=False,
             due_date__lte=forecast_end,
         ).aggregate(total=Sum("amount"))["total"]
@@ -442,9 +455,9 @@ def generate_cash_flow_snapshot(days_ahead=30):
     projected_gap = upcoming_obligations - expected_inflow
 
     return CashFlowSnapshot.objects.create(
+        business=business,
         date=today,
         expected_inflow=expected_inflow,
         upcoming_obligations=upcoming_obligations,
         projected_gap=projected_gap,
     )
-
