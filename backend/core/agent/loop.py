@@ -393,8 +393,8 @@ def run_agent_cycle():
 # --------------------------------------------------
 
 
+
 def generate_cash_flow_snapshot(days_ahead=30):
-   def generate_cash_flow_snapshot(days_ahead=30):
     """
     Create a cash-flow snapshot for the demo business over the next N days.
 
