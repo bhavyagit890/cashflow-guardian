@@ -58,34 +58,4 @@ class Migration(migrations.Migration):
             backfill_business_ownership,
             migrations.RunPython.noop,
         ),
-
-        migrations.AlterField(
-            model_name="cashflowsnapshot",
-            name="business",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="cash_flow_snapshots",
-                to="core.business",
-            ),
-        ),
-
-        migrations.AlterField(
-            model_name="client",
-            name="business",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="clients",
-                to="core.business",
-            ),
-        ),
-
-        migrations.AlterField(
-            model_name="expense",
-            name="business",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="expenses",
-                to="core.business",
-            ),
-        ),
-    ]
+ ]
