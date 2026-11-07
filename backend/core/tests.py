@@ -12,6 +12,7 @@ from django.template import response
 from django.test import TestCase, Client as TestClient
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework.authtoken.models import Token
 
 from core.agent.loop import (
     assess_invoice_risk,
@@ -23,6 +24,7 @@ from core.agent.loop import (
 )
 from core.models import (
     AgentAction,
+    Business,
     Client,
     Invoice,
     ReminderLog,
@@ -75,10 +77,24 @@ class PayPalWebhookBasicTests(TestCase):
 
 class InvoiceEventProcessingTests(TestCase):
     def setUp(self):
+        User = get_user_model()
+
+        self.user = User.objects.create_user(
+            username="webhook_tester",
+            password="TestPassword123!",
+        )
+
+        self.business = Business.objects.create(
+            owner=self.user,
+            name="Webhook Test Business",
+        )
+
         self.client_record = Client.objects.create(
             name="Test Client",
             email="client@example.com",
+            business=self.business,
         )
+
         self.invoice = Invoice.objects.create(
             paypal_invoice_id="TEST-INVOICE-001",
             client=self.client_record,
@@ -392,21 +408,34 @@ class WebhookRetryTests(TestCase):
 
 class AgentRiskActionTests(TestCase):
     def setUp(self):
-        self.client_record = Client.objects.create(
-            name="Agent Test Client",
-            email="agent-test@example.com",
-            reliability_score=50,
-        )
-        self.invoice = Invoice.objects.create(
-            paypal_invoice_id="AGENT-TEST-INVOICE-001",
-            client=self.client_record,
-            amount=Decimal("500.00"),
-            currency="USD",
-            issued_at=timezone.now(),
-            due_date=date(2026, 10, 1),
-            status=Invoice.Status.SENT,
-        
-        )
+      User = get_user_model()
+
+      self.user = User.objects.create_user(
+        username="agent_tester",
+        password="TestPassword123!",
+    )
+
+      self.business = Business.objects.create(
+        owner=self.user,
+        name="Agent Test Business",
+    )
+
+      self.client_record = Client.objects.create(
+        name="Agent Test Client",
+        email="agent-test@example.com",
+        reliability_score=50,
+        business=self.business,
+    )
+
+      self.invoice = Invoice.objects.create(
+        paypal_invoice_id="AGENT-TEST-INVOICE-001",
+        client=self.client_record,
+        amount=Decimal("500.00"),
+        currency="USD",
+        issued_at=timezone.now(),
+        due_date=date(2026, 10, 1),
+        status=Invoice.Status.SENT,
+    )
 
     def test_duplicate_pending_assessment_reuses_action(self):
         risk = assess_invoice_risk(self.invoice)
@@ -449,33 +478,46 @@ class AgentRiskActionTests(TestCase):
 
 class ReminderApprovalTests(TestCase):
     def setUp(self):
-        User = get_user_model()
-        self.user = User.objects.create_user(
-            username="approval_tester",
-            password="TestPassword123!",
-        )
-        self.client.force_login(self.user)
+       User = get_user_model()
 
-        self.client_record = Client.objects.create(
-            name="Approval Test Client",
-            email="approval-test@example.com",
-        )
-        self.invoice = Invoice.objects.create(
-            paypal_invoice_id="APPROVAL-TEST-INVOICE-001",
-            client=self.client_record,
-            amount=Decimal("250.00"),
-            currency="USD",
-            issued_at=timezone.now(),
-            due_date=date(2026, 10, 1),
-            status=Invoice.Status.SENT,
-        )
-        self.reminder = ReminderLog.objects.create(
-            invoice=self.invoice,
-            tone=ReminderLog.Tone.FRIENDLY,
-            subject="Payment reminder",
-            body="Please confirm your expected payment date.",
-            status=ReminderLog.Status.PENDING_APPROVAL,
-        )
+       self.user = User.objects.create_user(
+        username="approval_tester",
+        password="TestPassword123!",
+    )
+
+       self.business = Business.objects.create(
+        owner=self.user,
+        name="Approval Test Business",
+    )
+
+       self.token = Token.objects.create(user=self.user)
+       self.client.defaults["HTTP_AUTHORIZATION"] = (
+    f"Token {self.token.key}"
+)
+
+       self.client_record = Client.objects.create(
+        name="Approval Test Client",
+        email="approval-test@example.com",
+        business=self.business,
+    )
+
+       self.invoice = Invoice.objects.create(
+        paypal_invoice_id="APPROVAL-TEST-INVOICE-001",
+        client=self.client_record,
+        amount=Decimal("250.00"),
+        currency="USD",
+        issued_at=timezone.now(),
+        due_date=date(2026, 10, 1),
+        status=Invoice.Status.SENT,
+    )
+
+       self.reminder = ReminderLog.objects.create(
+        invoice=self.invoice,
+        tone=ReminderLog.Tone.FRIENDLY,
+        subject="Payment reminder",
+        body="Please confirm your expected payment date.",
+        status=ReminderLog.Status.PENDING_APPROVAL,
+    )
 
     def test_approve_pending_reminder(self):
         response = self.client.post(
@@ -519,8 +561,10 @@ class ReminderApprovalTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_rejecting_nonexistent_reminder_returns_404(self):
+        self.client.force_login(self.user)
+
         response = self.client.post(
-            reverse("reject_reminder", args=[999999])
+        reverse("reject_reminder", args=[999999])
         )
         self.assertEqual(response.status_code, 404)
 
@@ -607,19 +651,41 @@ class ReminderApprovalTests(TestCase):
         self.assertIn(response.status_code, [401, 403])
 
 
+
 class CashFlowForecastTests(TestCase):
+
     def setUp(self):
         User = get_user_model()
+
         self.user = User.objects.create_user(
             username="forecast_tester",
             password="TestPassword123!",
         )
-        self.client.force_login(self.user)
+
+        self.business = Business.objects.create(
+            owner=self.user,
+            name="Forecast Test Business",
+        )
+
+        # Make the forecast function use this test business.
+        self.config_patcher = patch(
+            "core.agent.loop.config",
+            return_value="forecast_tester",
+        )
+        self.config_patcher.start()
+        self.addCleanup(self.config_patcher.stop)
+
+        # Configure DRF token authentication.
+        self.token = Token.objects.create(user=self.user)
+        self.client.defaults["HTTP_AUTHORIZATION"] = (
+            f"Token {self.token.key}"
+        )
 
         self.client_record = Client.objects.create(
             name="Forecast Test Client",
             email="forecast@example.com",
             reliability_score=75,
+            business=self.business,
         )
 
         self.invoice = Invoice.objects.create(
@@ -639,17 +705,24 @@ class CashFlowForecastTests(TestCase):
             due_date=timezone.localdate() + timedelta(days=7),
             category=Expense.Category.SOFTWARE,
             is_paid=False,
+            business=self.business,
         )
 
     def test_forecast_calculates_projected_gap(self):
         snapshot = generate_cash_flow_snapshot()
 
-        self.assertEqual(snapshot.expected_inflow, Decimal("500.00"))
+        self.assertEqual(
+            snapshot.expected_inflow,
+            Decimal("500.00"),
+        )
         self.assertEqual(
             snapshot.upcoming_obligations,
             Decimal("200.00"),
         )
-        self.assertEqual(snapshot.projected_gap, Decimal("-300.00"))
+        self.assertEqual(
+            snapshot.projected_gap,
+            Decimal("-300.00"),
+        )
 
     def test_paid_expense_is_excluded(self):
         self.expense.is_paid = True
@@ -679,6 +752,7 @@ class CashFlowForecastTests(TestCase):
         response = self.client.get("/api/expenses/")
 
         self.assertEqual(response.status_code, 200)
+
         self.assertTrue(
             any(
                 item["description"] == "Forecast test subscription"
@@ -692,6 +766,7 @@ class CashFlowForecastTests(TestCase):
         response = self.client.get("/api/cash-flow-snapshots/")
 
         self.assertEqual(response.status_code, 200)
+
         self.assertTrue(
             any(
                 item["id"] == snapshot.id
@@ -700,7 +775,9 @@ class CashFlowForecastTests(TestCase):
         )
 
     def test_overdue_invoice_is_included_in_expected_inflow(self):
-        self.invoice.due_date = timezone.localdate() - timedelta(days=3)
+        self.invoice.due_date = (
+            timezone.localdate() - timedelta(days=3)
+        )
         self.invoice.save(update_fields=["due_date"])
 
         snapshot = generate_cash_flow_snapshot()
@@ -709,6 +786,7 @@ class CashFlowForecastTests(TestCase):
             snapshot.expected_inflow,
             Decimal("500.00"),
         )
+
 
 class RunCashflowAgentCommandTests(TestCase):
     @patch(
@@ -734,21 +812,34 @@ class RunCashflowAgentCommandTests(TestCase):
 
 class ProcessOverdueInvoiceTests(TestCase):
     def setUp(self):
-        self.client_record = Client.objects.create(
-            name="Reminder Test Client",
-            email="reminder-test@example.com",
-            reliability_score=75,
-        )
+       User = get_user_model()
 
-        self.invoice = Invoice.objects.create(
-            paypal_invoice_id="REMINDER-TEST-001",
-            client=self.client_record,
-            amount=Decimal("500.00"),
-            currency="USD",
-            issued_at=timezone.now(),
-            due_date=date(2026, 10, 1),
-            status=Invoice.Status.SENT,
-        )
+       self.user = User.objects.create_user(
+        username="reminder_tester",
+        password="TestPassword123!",
+    )
+
+       self.business = Business.objects.create(
+        owner=self.user,
+        name="Reminder Test Business",
+    )
+
+       self.client_record = Client.objects.create(
+        name="Reminder Test Client",
+        email="reminder-test@example.com",
+        reliability_score=75,
+        business=self.business,
+    )
+
+       self.invoice = Invoice.objects.create(
+        paypal_invoice_id="REMINDER-TEST-001",
+        client=self.client_record,
+        amount=Decimal("500.00"),
+        currency="USD",
+        issued_at=timezone.now(),
+        due_date=date(2026, 10, 1),
+        status=Invoice.Status.SENT,
+    )
 
     @patch("core.agent.loop.generate_reminder_draft")
     def test_approved_reminder_is_not_recreated(self, mock_generate_draft):
@@ -909,13 +1000,25 @@ class RunAgentCycleErrorLoggingTests(TestCase):
         self.assertIn("TEST-FAIL-001", log_output)
         self.assertIn("Simulated Gemini failure", log_output)
         self.assertIn("Traceback", log_output)
-
-
 class PayPalInvoiceSyncTests(TestCase):
+
     def setUp(self):
+        User = get_user_model()
+
+        self.user = User.objects.create_user(
+            username="paypal_sync_tester",
+            password="TestPassword123!",
+        )
+
+        self.business = Business.objects.create(
+            owner=self.user,
+            name="PayPal Sync Test Business",
+        )
+
         self.client_record = Client.objects.create(
             name="PayPal Sandbox Client",
             email="demo@example.com",
+            business=self.business,
         )
 
         self.paypal_data = {
@@ -1004,7 +1107,9 @@ class PayPalInvoiceSyncTests(TestCase):
         Client.objects.create(
             name="Another Sandbox Client",
             email="demo@example.com",
+            business=self.business,
         )
+
         mock_fetch.return_value = self.paypal_data
 
         with self.assertRaisesMessage(
@@ -1058,12 +1163,25 @@ class PayPalInvoiceSyncTests(TestCase):
             ).exists()
         )
 
-
 class ReminderPlaceholderValidationTests(TestCase):
+
     def setUp(self):
+        User = get_user_model()
+
+        self.user = User.objects.create_user(
+            username="placeholder_tester",
+            password="TestPassword123!",
+        )
+
+        self.business = Business.objects.create(
+            owner=self.user,
+            name="Placeholder Test Business",
+        )
+
         self.client_record = Client.objects.create(
             name="Placeholder Test Client",
             email="placeholder-test@example.com",
+            business=self.business,
         )
 
         self.invoice = Invoice.objects.create(
@@ -1111,4 +1229,3 @@ class ReminderPlaceholderValidationTests(TestCase):
             reminder.status,
             ReminderLog.Status.PENDING_APPROVAL,
         )
-
