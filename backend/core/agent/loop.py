@@ -396,21 +396,23 @@ def run_agent_cycle():
 
 def generate_cash_flow_snapshot(days_ahead=30):
     """
-    Create a cash-flow snapshot for the demo business over the next N days.
+    Create a cash-flow snapshot for the demo business
+    over the next N days.
 
     Inflow:
-        Full amounts of SENT and PARTIALLY_PAID invoices with
-        a due date on or before the forecast end date.
+        Full amounts of SENT and PARTIALLY_PAID invoices
+        with a due date on or before the forecast end date.
 
     Obligations:
-        Unpaid expenses due between today and the forecast end.
+        All unpaid expenses due on or before the forecast end date,
+        including overdue expenses.
 
     Limitations:
         - Partial payments are not deducted because the model
           does not track the amount already paid.
-        - Overdue expenses are excluded from this initial forecast.
-        - Totals are meaningful only when records use a consistent
-          currency. This version does not perform currency conversion.
+        - Totals are meaningful only when records use a
+          consistent currency.
+        - This version does not perform currency conversion.
         - Forecasts are estimates, not guarantees.
     """
 
@@ -419,6 +421,7 @@ def generate_cash_flow_snapshot(days_ahead=30):
 
     # Identify the demo business.
     demo_username = config("DEMO_USERNAME")
+
     business = Business.objects.get(
         owner__username=demo_username
     )
@@ -436,17 +439,22 @@ def generate_cash_flow_snapshot(days_ahead=30):
             ],
             due_date__isnull=False,
             due_date__lte=forecast_end,
-        ).aggregate(total=Sum("amount"))["total"]
+        ).aggregate(
+            total=Sum("amount")
+        )["total"]
         or Decimal("0.00")
     )
 
-    # Calculate unpaid expenses for this business only.
+    # Calculate all unpaid expenses for this business.
+    # Includes overdue expenses.
     upcoming_obligations = (
         Expense.objects.filter(
             business=business,
             is_paid=False,
             due_date__lte=forecast_end,
-        ).aggregate(total=Sum("amount"))["total"]
+        ).aggregate(
+            total=Sum("amount")
+        )["total"]
         or Decimal("0.00")
     )
 
@@ -454,6 +462,7 @@ def generate_cash_flow_snapshot(days_ahead=30):
     # Negative = projected surplus.
     projected_gap = upcoming_obligations - expected_inflow
 
+    # Save the snapshot.
     return CashFlowSnapshot.objects.create(
         business=business,
         date=today,
